@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe de Práctica 2: Detección de Bordes con Filtro Sobel 3x3 mediante Hilos en Java</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            color: #111111;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 2px solid #000000;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        h1 {
+            font-size: 22px;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+        }
+        .datos-practica {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+        }
+        .datos-practica td {
+            padding: 4px 0;
+            font-size: 14px;
+        }
+        .campo {
+            width: 140px;
+            font-weight: bold;
+        }
+        h2 {
+            font-size: 18px;
+            margin: 30px 0 12px 0;
+            border-bottom: 1px solid #888888;
+            padding-bottom: 4px;
+        }
+        h3 {
+            font-size: 15px;
+            margin: 18px 0 8px 0;
+        }
+        p, li {
+            font-size: 14px;
+            text-align: justify;
+        }
+        ul, ol {
+            padding-left: 22px;
+            margin-top: 6px;
+            margin-bottom: 12px;
+        }
+        li {
+            margin-bottom: 4px;
+        }
+        table.tabla-datos {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 13px;
+        }
+        table.tabla-datos th, table.tabla-datos td {
+            border: 1px solid #555555;
+            padding: 7px 9px;
+            text-align: left;
+        }
+        table.tabla-datos th {
+            background-color: #f2f2f2;
+        }
+        table.tabla-datos td.derecha {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .formula-line {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #f7f7f7;
+            border: 1px solid #cccccc;
+            padding: 8px 12px;
+            margin: 10px 0;
+            font-size: 13.5px;
+        }
+        .galeria {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .contenedor-imagen {
+            flex: 1 1 calc(50% - 10px);
+            border: 1px solid #777777;
+            padding: 8px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .contenedor-imagen img {
+            max-width: 100%;
+            height: auto;
+            max-height: 380px;
+            display: block;
+            margin: 0 auto 6px auto;
+        }
+        .pie-imagen {
+            font-size: 12px;
+            font-style: italic;
+        }
+        footer {
+            margin-top: 40px;
+            padding-top: 12px;
+            border-top: 1px solid #888888;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>Práctica 2: Detección de Bordes con Filtro Sobel 3x3 mediante Hilos en Java</h1>
+        <table class="datos-practica">
+            <tr>
+                <td class="campo">Asignatura:</td>
+                <td>Computación Paralela y Distribuida</td>
+            </tr>
+            <tr>
+                <td class="campo">Integrantes:</td>
+                <td>Andrés Encalada y Karen Ortiz</td>
+            </tr>
+            <tr>
+                <td class="campo">Hardware de prueba:</td>
+                <td>Intel Core 7 240H (16 núcleos lógicos, 10 núcleos físicos, 24 MB L3 Cache)</td>
+            </tr>
+            <tr>
+                <td class="campo">Entorno:</td>
+                <td>Linux x86_64, Java 21 (OpenJDK)</td>
+            </tr>
+        </table>
+    </header>
+
+    <section>
+        <h2>1. Metodología de Diseño Paralelo</h2>
+        <p>
+            El desarrollo del programa se basó en los cuatro pasos de diseño paralelo vistos en clase: descomposición, asignación, aglomeración y mapeo.
+        </p>
+
+        <h3>1.1. Descomposición del problema</h3>
+        <p>
+            El objetivo es calcular los bordes de una imagen usando el filtro Sobel con matrices de 3x3. Como una imagen es una matriz de píxeles, se aplicó descomposición del dominio, dividiendo la imagen horizontalmente en franjas de filas. De esta manera, todos los hilos ejecutan el mismo algoritmo de detección pero sobre partes distintas de la imagen.
+        </p>
+        <p>
+            Debido a que la máscara de Sobel necesita una ventana de 3x3 píxeles, para calcular la fila superior e inferior de cada bloque asignado es obligatorio consultar la fila vecina del bloque de al lado. Por lo tanto, cada hilo lee una fila adicional vecina como margen, pero escribe únicamente en las filas que le corresponden dentro de la imagen de salida.
+        </p>
+
+        <h3>1.2. Asignación y balance de carga</h3>
+        <p>
+            Para que el trabajo quede parejo y ningún procesador termine antes quedándose sin hacer nada, las filas se reparten de forma equitativa. Se divide el alto total de la imagen para el número de hilos. Si sobra un residuo al dividir, se le suma una fila extra a los primeros hilos hasta terminar el sobrante. Así, la carga de trabajo entre todos los hilos es prácticamente igual (con una diferencia máxima de solo una fila).
+        </p>
+
+        <h3>1.3. Aglomeración</h3>
+        <p>
+            En lugar de crear un hilo por cada fila o por cada píxel (lo que crearía miles de hilos y saturaría el sistema operativo), se juntan grupos grandes de filas continuas para cada hilo. Esto permite que el procesador lea la memoria de forma lineal y ordenada, aprovechando mejor la memoria caché y reduciendo el tiempo perdido en crear y sincronizar hilos.
+        </p>
+
+        <h3>1.4. Mapeo</h3>
+        <p>
+            Se asignó un hilo de Java (Thread) a cada bloque de filas. Como la memoria es compartida, todos los hilos leen directamente de la imagen original. No se producen conflictos ni condiciones de carrera porque cada hilo escribe en filas separadas de la imagen final, por lo que no hace falta usar cerrojos ni bloqueos (locks), logrando una ejecución limpia mediante el modelo Fork-Join.
+        </p>
+    </section>
+
+    <section>
+        <h2>2. Fórmulas de Rendimiento</h2>
+        <p>
+            Para evaluar qué tan rápido corre la versión paralela frente a la secuencial, se utilizan dos fórmulas:
+        </p>
+        <div class="formula-line">
+            Speedup: S(p) = Ts / Tp
+        </div>
+        <div class="formula-line">
+            Eficiencia: E(p) = S(p) / p = Ts / (p * Tp)
+        </div>
+        <p>
+            Donde Ts es el tiempo con 1 solo hilo y Tp es el tiempo con p hilos.
+        </p>
+        <p>
+            El estado de escalabilidad se clasifica según la eficiencia obtenida:
+        </p>
+        <ul>
+            <li>Escalable: Si la eficiencia es del 50% o más (E &gt;= 0.50). Significa que los núcleos adicionales están aprovechando bien el trabajo y aceleran el programa de forma conveniente.</li>
+            <li>Baja eficiencia: Si la eficiencia es menor al 50% (E &lt; 0.50). Ocurre cuando el costo de coordinar tantos hilos y compartir la memoria empieza a reducir la ganancia de velocidad.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>3. Resultados Experimentales</h2>
+
+        <h3>3.1. Comparación visual de la imagen</h3>
+        <p>
+            Se procesó una imagen en resolución 6K (4160 x 6240 píxeles, que son casi 26 millones de píxeles y unos 99 MB en memoria RAM). A continuación se muestra la imagen original y la única imagen de salida generada con los bordes detectados:
+        </p>
+
+        <div class="galeria">
+            <div class="contenedor-imagen">
+                <img src="imagenes/entrada/imagen_6k.jpg" alt="Imagen original">
+                <div class="pie-imagen">Figura 1. Imagen original de entrada (4160 x 6240 px).</div>
+            </div>
+            <div class="contenedor-imagen">
+                <img src="imagenes/salida/imagen_6k_sobel.jpg" alt="Imagen procesada con Sobel">
+                <div class="pie-imagen">Figura 2. Imagen final con bordes detectados mediante Sobel.</div>
+            </div>
+        </div>
+        <p>
+            La imagen resultante se ve oscura con líneas claras porque el filtro Sobel busca cambios de contraste. En áreas parejas como el cielo o el asfalto, no hay cambio de color y el resultado es cero (fondo negro). En cambio, donde hay bordes notorios como los cables y vigas del puente o las siluetas, el valor aumenta y se pinta de blanco o gris claro.
+        </p>
+
+        <h3>3.2. Tabla de tiempos y aceleración</h3>
+        <p>
+            Tiempos de procesamiento en memoria RAM para las diferentes cantidades de hilos evaluadas:
+        </p>
+        <table class="tabla-datos">
+            <thead>
+                <tr>
+                    <th>Hilos (p)</th>
+                    <th>Resolución</th>
+                    <th>Tiempo secuencial Ts (ms)</th>
+                    <th>Tiempo paralelo Tp (ms)</th>
+                    <th>Speedup S(p)</th>
+                    <th>Eficiencia E(p)</th>
+                    <th>Estado de escalabilidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>4160x6240</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">1.00x</td>
+                    <td class="derecha">100.00%</td>
+                    <td>Escalable</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>4160x6240</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">1149.41</td>
+                    <td class="derecha">1.74x</td>
+                    <td class="derecha">87.19%</td>
+                    <td>Escalable</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>4160x6240</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">399.05</td>
+                    <td class="derecha">5.02x</td>
+                    <td class="derecha">125.57%</td>
+                    <td>Escalable</td>
+                </tr>
+                <tr>
+                    <td>16</td>
+                    <td>4160x6240</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">356.34</td>
+                    <td class="derecha">5.62x</td>
+                    <td class="derecha">35.15%</td>
+                    <td>Baja eficiencia</td>
+                </tr>
+                <tr>
+                    <td>32</td>
+                    <td>4160x6240</td>
+                    <td class="derecha">2004.31</td>
+                    <td class="derecha">297.64</td>
+                    <td class="derecha">6.73x</td>
+                    <td class="derecha">21.04%</td>
+                    <td>Baja eficiencia</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>4. Conclusiones</h2>
+        <ol>
+            <li>
+                Comportamiento de los hilos en el procesador: La computadora cuenta con un procesador Intel Core 7 240H que tiene físicamente 16 núcleos lógicos. En Java y en el sistema operativo sí es posible crear y ejecutar 32 hilos porque el sistema los va alternando por turnos en el tiempo (time-slicing). Sin embargo, físicamente la máquina solo puede ejecutar 16 hilos a la vez. Al mandar 32 hilos, hay dos hilos compitiendo por cada núcleo, lo que genera sobrecostos por estar cambiando de hilo a cada momento (cambios de contexto) y saturando el acceso a la memoria RAM. Por esta razón, con 32 hilos la eficiencia baja al 21.04% y pasa a clasificarse como baja eficiencia.
+            </li>
+            <li>
+                Mejor configuración encontrada: El punto con mejor equilibrio fue usar 4 hilos, donde se logró una aceleración de 5.02x con respecto a la versión secuencial y una eficiencia superior al 100%. A partir de más hilos, aunque el tiempo en milisegundos baja un poco, la ganancia ya no es proporcional al número de hilos añadidos.
+            </li>
+            <li>
+                Efectividad de la partición por filas: Dividir la imagen por franjas horizontales funcionó de manera rápida y directa en memoria compartida. Como cada hilo escribe en sus propias filas asignadas, no hubo necesidad de sincronizaciones complejas ni bloqueos, logrando que los hilos trabajen en paralelo sin interferirse.
+            </li>
+        </ol>
+    </section>
+
+    <footer>
+        <p>Computación Paralela y Distribuida - Práctica 2 - Andrés Encalada y Karen Ortiz - 2026</p>
+    </footer>
+
+</div>
+
+</body>
+</html>

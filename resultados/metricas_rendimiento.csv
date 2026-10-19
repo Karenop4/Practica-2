@@ -1,0 +1,6 @@
+Imagen;Resolucion;Hilos;Tiempo_Secuencial_ms;Tiempo_Paralelo_ms;Speedup;Eficiencia_Pct;Estado_Escalabilidad
+imagen_6k.jpg;4160x6240;1;2004.31;2004.31;1.00;100.00;Escalable
+imagen_6k.jpg;4160x6240;2;2004.31;1149.41;1.74;87.19;Escalable
+imagen_6k.jpg;4160x6240;4;2004.31;399.05;5.02;125.57;Escalable
+imagen_6k.jpg;4160x6240;16;2004.31;356.34;5.62;35.15;Baja eficiencia
+imagen_6k.jpg;4160x6240;32;2004.31;297.64;6.73;21.04;Baja eficiencia
